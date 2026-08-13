@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#3f5fa8">
+<title>V60 SPEED4.5｜開盤前 TOP 2 引擎</title>
+<style>
+:root{--blue:#3f5fa8;--bg:#edf3fc;--card:#fff;--ink:#183568;--muted:#7f91ae;--line:#e4eaf3;--good:#16a56b;--warn:#e8a400;--bad:#d84b62}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif;color:var(--ink)}
+.wrap{max-width:980px;margin:auto;padding:16px}.hero{background:linear-gradient(145deg,#3d5d9f,#4669b3);color:#fff;border-radius:0 0 44px 44px;padding:28px 20px 24px;margin:-16px -16px 16px}
+h1{font-size:31px;margin:0 0 8px;font-weight:900}.sub{font-size:16px;font-weight:700;line-height:1.55}.status{margin-top:18px;background:rgba(255,255,255,.16);border-radius:30px;padding:11px 15px;font-weight:800}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.card{background:var(--card);border-radius:22px;padding:18px;box-shadow:0 5px 20px rgba(30,60,100,.08);border:1px solid var(--line)}
+.rank{font-size:13px;font-weight:900;color:#5470ad}.ticker{font-size:22px;font-weight:900;margin:4px 0}.score{font-size:34px;font-weight:950}.pill{display:inline-block;border-radius:20px;padding:5px 9px;font-size:12px;font-weight:900;background:#e8f8f1;color:var(--good)}.pill.warn{background:#fff4d9;color:#a86d00}.pill.bad{background:#ffe8ed;color:var(--bad)}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:14px}.m{border:1px solid var(--line);border-radius:14px;padding:10px}.lab{font-size:11px;color:var(--muted);font-weight:700}.val{font-size:16px;font-weight:900;margin-top:3px}
+.section{margin-top:14px}.section h2{font-size:20px;margin:0 0 10px}.table{width:100%;border-collapse:collapse;font-size:13px}.table th,.table td{padding:9px 5px;border-bottom:1px solid var(--line);text-align:left}.bar{height:7px;background:#e9eef6;border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;background:#5577bd}.note{font-size:12px;color:var(--muted);line-height:1.65}.btn{width:100%;border:0;border-radius:14px;padding:13px;background:#355b9f;color:#fff;font-size:15px;font-weight:900;margin-top:12px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}h1{font-size:26px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<section class="hero">
+<h1>開盤前 TOP 2 自主選股</h1>
+<div class="sub">V60 SPEED4.5｜00631L＋鴻海 2317 保留<br>技術面＋量價＋趨勢＋支撐壓力＋盤前風險過濾</div>
+<div class="status" id="status">● 正在分析候選池…</div>
+</section>
+
+<div class="grid" id="top2"></div>
+
+<div class="card section">
+<h2>候選排名</h2>
+<table class="table"><thead><tr><th>#</th><th>標的</th><th>分數</th><th>方向</th><th>低點區</th><th>高點區</th></tr></thead>
+<tbody id="ranking"></tbody></table>
+</div>
+
+<div class="card section">
+<h2>原有監測標的</h2>
+<div class="grid" id="core"></div>
+</div>
+
+<div class="card section">
+<h2>模型規則</h2>
+<div class="note">
+模型分數不是「保證勝率」。系統只在有足夠資料時才計算歷史命中率。預測高低點採區間而非單一神奇價格，並以盤前與盤中新資料持續更新。
+</div>
+<button class="btn" onclick="scan()">立即重新分析</button>
+</div>
+</div>
+<script>
+const seed=[
+{code:"2317",name:"鴻海",price:264,prev:263,volume:1.2,trend:78,rsi:64,macd:72,order:65},
+{code:"00631L",name:"元大台灣50正2",price:36.29,prev:35.45,volume:1.4,trend:80,rsi:67,macd:75,order:60},
+{code:"2330",name:"台積電",price:0,prev:0,volume:0,trend:0,rsi:0,macd:0,order:0},
+{code:"2454",name:"聯發科",price:0,prev:0,volume:0,trend:0,rsi:0,macd:0,order:0},
+{code:"2382",name:"廣達",price:0,prev:0,volume:0,trend:0,rsi:0,macd:0,order:0},
+{code:"2308",name:"台達電",price:0,prev:0,volume:0,trend:0,rsi:0,macd:0,order:0}
+];
+function clamp(x,a,b){return Math.max(a,Math.min(b,x))}
+function calc(x){
+ const p=Number(x.price||0), prev=Number(x.prev||p||0);
+ if(!p) return {...x,score:0,change:0,low:0,buy:0,sell:0,high:0,risk:"資料不足"};
+ const ch=(p-prev)/prev*100;
+ const volume=clamp(50+Math.log10(1+Number(x.volume||0))*22,0,100);
+ const trend=Number(x.trend||clamp(50+ch*14,0,100));
+ const rsi=Number(x.rsi||50), macd=Number(x.macd||50), order=Number(x.order||50);
+ const momentum=clamp(50+ch*12,0,100);
+ const score=.20*trend+.15*volume+.12*clamp(rsi,0,100)+.15*clamp(macd,0,100)+.13*order+.15*momentum+.10*clamp(55+ch*8,0,100);
+ const atr=Math.max(p*.012,0.01);
+ const low=p-1.05*atr, buy=p-.55*atr, sell=p+1.15*atr, high=p+1.65*atr;
+ const risk=Math.abs(ch)>3?"高":Math.abs(ch)>1.5?"中":"低";
+ return {...x,score,change:ch,low,buy,sell,high,risk};
+}
+async function getData(){
+ try{
+  const r=await fetch("/api/quotes",{cache:"no-store"});
+  if(!r.ok) throw 0;
+  const d=await r.json();
+  if(Array.isArray(d)&&d.length) return d.map(x=>({...x,trend:undefined,rsi:undefined,macd:undefined,order:undefined}));
+ }catch(e){}
+ return seed;
+}
+function f(x){return x?Number(x).toFixed(2):"—"}
+function render(list){
+ list=list.map(calc).filter(x=>x.price>0).sort((a,b)=>b.score-a.score);
+ const top=list.slice(0,2);
+ document.getElementById("top2").innerHTML=top.length?top.map((x,i)=>`
+ <div class="card"><div class="rank">🏆 TOP ${i+1}</div><div class="ticker">${x.code} ${x.name||""}</div>
+ <div><span class="score">${x.score.toFixed(1)}</span> <span class="pill ${x.risk==="高"?"bad":x.risk==="中"?"warn":""}">${x.risk==="高"?"追高風險高":x.risk==="中"?"風險中":"偏多觀察"}</span></div>
+ <div class="metrics">
+ <div class="m"><div class="lab">漲跌</div><div class="val">${x.change.toFixed(2)}%</div></div>
+ <div class="m"><div class="lab">模型分數</div><div class="val">${x.score.toFixed(1)}/100</div></div>
+ <div class="m"><div class="lab">預測低點區</div><div class="val">${f(x.low)}～${f(x.buy)}</div></div>
+ <div class="m"><div class="lab">預測高點區</div><div class="val">${f(x.sell)}～${f(x.high)}</div></div>
+ </div>
+ <div class="section"><div class="lab">模型強度</div><div class="bar"><i style="width:${clamp(x.score,0,100)}%"></i></div></div>
+ </div>`).join(""):`<div class="card">目前沒有足夠行情資料，暫不選股。</div>`;
+ document.getElementById("ranking").innerHTML=list.slice(0,10).map((x,i)=>`<tr><td>${i+1}</td><td>${x.code} ${x.name||""}</td><td>${x.score.toFixed(1)}</td><td>${x.change>=0?"↑":"↓"}</td><td>${f(x.low)}～${f(x.buy)}</td><td>${f(x.sell)}～${f(x.high)}</td></tr>`).join("");
+ const core=list.filter(x=>["2317","00631L"].includes(x.code));
+ document.getElementById("core").innerHTML=core.map(x=>`<div class="card"><b>${x.code} ${x.name||""}</b><div style="font-size:24px;font-weight:900;margin-top:5px">${f(x.price)}</div><div class="note">${x.change.toFixed(2)}%｜TOP模型 ${x.score.toFixed(1)}</div></div>`).join("");
+}
+async function scan(){
+ document.getElementById("status").textContent="● 正在更新行情與重新分析…";
+ const d=await getData(); render(d);
+ document.getElementById("status").textContent="● 分析完成｜"+new Date().toLocaleString("zh-TW");
+}
+scan(); setInterval(scan,60000);
+</script>
+</body>
+</html>
